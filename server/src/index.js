@@ -1,3 +1,4 @@
+import './load-env.js';
 import express from 'express'; import cookieParser from 'cookie-parser'; import helmet from 'helmet'; import rateLimit from 'express-rate-limit'; import bcrypt from 'bcryptjs'; import crypto from 'node:crypto'; import { db } from './db.js'; import path from 'node:path'; import {mountCatalogAdmin} from './routes/catalog-admin.js'; import {clientDistPath} from './paths.js';
 const app=express(); app.set('trust proxy',1); app.use(helmet({contentSecurityPolicy:false, ...(process.env.ALLOW_PREVIEW_EMBED === '1' ? {frameguard:false} : {})})); app.use(express.json({limit:'100kb'})); app.use(cookieParser()); app.use('/api',rateLimit({windowMs:15*60*1000,limit:500,standardHeaders:true,legacyHeaders:false}));
 const q=(s,...a)=>db.prepare(s).all(...a), one=(s,...a)=>db.prepare(s).get(...a), run=(s,...a)=>db.prepare(s).run(...a); const hash=s=>crypto.createHash('sha256').update(s).digest('hex');
