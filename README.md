@@ -31,6 +31,7 @@ server/
   src/routes/          Product administration and image upload routes
   src/db.js            SQLite schema and migrations
   src/admin.js         Owner setup command
+  src/load-env.js      Server-local environment loader
   src/paths.js         Stable database, uploads and client build paths
   package.json         Backend dependencies and commands
   .env.example         Backend-only configuration
@@ -47,6 +48,7 @@ Node 22.13+ and npm are required. From the repository root:
 
 ```sh
 npm install
+test -f server/.env || cp server/.env.example server/.env
 npm run dev
 ```
 
@@ -68,20 +70,24 @@ Vite proxies `/api` and `/uploads` to Express on port 5000 while preserving the 
 
 Image uploads are decoded and converted to WebP. Default local storage requires a persistent volume; ephemeral server filesystems will lose uploads. For a managed persistent service, configure `IMAGE_STORAGE=s3`, `S3_BUCKET`, `AWS_REGION`, AWS credentials via the SDK credential chain, and optionally `S3_ENDPOINT` for an S3-compatible provider. The bucket can remain private: Express serves the saved image URLs. Switching storage backends requires copying existing objects to the new backend first. S3 is implemented but requires your credentials and has not been tested against a live provider. Removing an image from a product does not immediately delete the stored object.
 
-Backend environment variables are documented in `server/.env.example`; export them or provide them through a process manager (the backend does not load `.env` automatically). `client/.env.example` contains only the optional public `VITE_PROXY_TARGET`; Vite loads a copied `client/.env` automatically. No backend secret belongs in that file. `PORT` controls the API port; set `VITE_PROXY_TARGET` to match if changing it. The pre-existing root `.env`, if present, is not moved or overwritten.
+Copy `server/.env.example` to `server/.env` if it does not already exist, and edit `server/.env` privately. Both the server and owner setup command load it automatically, regardless of the working directory. Exported process environment variables take precedence over the file, including `DB_PATH`, `UPLOAD_DIR`, and `NODE_ENV`. The file is ignored by Git and is not distributed with the repository; never commit it or place backend secrets in `client/`. `client/.env.example` contains only the optional public `VITE_PROXY_TARGET`; Vite loads a copied `client/.env` automatically. `PORT` controls the API port; set `VITE_PROXY_TARGET` to match if changing it. The pre-existing root `.env`, if present, is not moved or overwritten.
 
 To preserve existing installations, default database and upload locations remain **repository-root** `data/bunavat.sqlite` and `data/uploads`, regardless of whether the server is started from the root or `server/`. Relative `DB_PATH` and `UPLOAD_DIR` overrides are also resolved from the repository root; absolute overrides continue to work. Back up these locations before upgrading and keep them on persistent storage. No database or uploads need to be moved.
 
 ### Owner setup
 
-Run once against the same database used by the server. Use a strong unique password, set these variables securely (avoid placing the password in shell history), and unset them afterward:
+Run once against the same database used by the server:
 
-```sh
-export ADMIN_NAME='Store Owner' ADMIN_EMAIL='owner@example.com'
-read -rs ADMIN_PASSWORD; export ADMIN_PASSWORD; echo
-npm run setup-admin
-unset ADMIN_PASSWORD ADMIN_NAME ADMIN_EMAIL
-```
+1. Create `server/.env` from `server/.env.example` if it does not already exist (the command above does not overwrite an existing file).
+2. Privately edit `server/.env` and set `ADMIN_NAME`, `ADMIN_EMAIL`, and a unique `ADMIN_PASSWORD` of at least 10 characters. Use an editor rather than typing a password in shell history. Values are not logged.
+3. From the repository root run:
+
+   ```sh
+   npm run setup-admin
+   ```
+
+   Alternatively, run `npm run setup-admin` from `server/`. Existing exported variables with the same names override the file.
+4. Remove the password from `server/.env` after creating the owner, and restart the server if needed. Keep the remaining file private; it is ignored by Git.
 
 Sign in with that account, then visit `/admin`. Customer registration cannot grant admin privileges. The setup script creates a new owner account; it does not elevate an existing customer.
 
@@ -104,7 +110,7 @@ npm run build
 npm audit --omit=dev
 ```
 
-The integration test starts isolated Express and Vite processes and exercises the proxy, customer/admin login, admin permissions, uploaded image persistence, draft/publish validation, multiple variants, public search, price and inventory edits, stock limits, COD placement, order privacy, variant removal, cancellation, reviews, return approvals and safe archival. Migration and path tests check history preservation and stable storage paths from both working directories. `npm test` builds the client first. It does not cover Razorpay/Shiprocket (not implemented), browser rendering, responsive layout, password reset, or the other missing features above.
+The integration test starts isolated Express and Vite processes and exercises the proxy, customer/admin login, admin permissions, uploaded image persistence, draft/publish validation, multiple variants, public search, price and inventory edits, stock limits, COD placement, order privacy, variant removal, cancellation, reviews, return approvals and safe archival. Migration and path tests check history preservation and stable storage paths from both working directories. The environment test uses an isolated temporary database and a generated credential to check file loading and process-environment precedence without touching the real server environment or database. `npm test` builds the client first. It does not cover Razorpay/Shiprocket (not implemented), browser rendering, responsive layout, password reset, or the other missing features above.
 
 ## API overview
 
