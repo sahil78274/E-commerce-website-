@@ -1,7 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
-mkdirSync('data',{recursive:true});
-export const db = new DatabaseSync(process.env.DB_PATH || 'data/bunavat.sqlite');
+import path from 'node:path';
+import { databasePath } from './paths.js';
+if (databasePath !== ':memory:') mkdirSync(path.dirname(databasePath), {recursive:true});
+export const db = new DatabaseSync(databasePath);
 db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'customer', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
