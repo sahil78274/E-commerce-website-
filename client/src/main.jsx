@@ -1,32 +1,1483 @@
-import React,{useEffect,useState,createContext,useContext} from 'react'; import {createRoot} from 'react-dom/client'; import {BrowserRouter,Routes,Route,Link,useNavigate,useParams,useLocation} from 'react-router-dom'; import {Search,UserRound,Heart,ShoppingBag,ArrowRight,ChevronRight,ChevronLeft,Truck,RotateCcw,ShieldCheck,Menu,X,Plus,Minus,Instagram,Facebook,ArrowUpRight} from 'lucide-react'; import './style.css'; import AdminApp from './admin/AdminApp.jsx';
-const C=createContext(); const money=n=>'₹'+Number(n).toLocaleString('en-IN');
-async function api(url,options={}){let r=await fetch('/api'+url,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});let data=await r.json();if(!r.ok)throw Error(data.error||'Something went wrong');return data}
-function App(){let [user,setUser]=useState(null),[cart,setCart]=useState([]),[wish,setWish]=useState([]),[toast,setToast]=useState(''); const notify=s=>{setToast(s);setTimeout(()=>setToast(''),3000)}; const refresh=async()=>{let d=await api('/me');setUser(d.user);if(d.user){setCart(await api('/cart'));setWish(await api('/wishlist'))}else{setCart([]);setWish([])}};useEffect(()=>{refresh()},[]);return <C.Provider value={{user,setUser,cart,setCart,wish,setWish,refresh,notify}}><BrowserRouter><SiteRoutes/>{toast&&<div className="toast">{toast}</div>}</BrowserRouter></C.Provider>}
-function SiteRoutes(){let loc=useLocation(),{user,notify}=useContext(C),admin=loc.pathname==='/admin'||loc.pathname.startsWith('/admin/');return <>{!admin&&<Header/>}<Routes><Route path="/" element={<Home/>}/><Route path="/men" element={<Catalog gender="Men"/>}/><Route path="/women" element={<Catalog gender="Women"/>}/><Route path="/search" element={<Catalog/>}/><Route path="/category/:slug" element={<Catalog/>}/><Route path="/product/:slug" element={<Product/>}/><Route path="/cart" element={<Cart/>}/><Route path="/checkout" element={<Checkout/>}/><Route path="/login" element={<Auth/>}/><Route path="/register" element={<Auth register/>}/><Route path="/wishlist" element={<Wishlist/>}/><Route path="/account" element={<Account/>}/><Route path="/account/orders" element={<Orders/>}/><Route path="/account/orders/:id" element={<Order/>}/><Route path="/admin/*" element={<AdminApp user={user} notify={notify} api={api} money={money}/>}/><Route path="/:page" element={<Info/>}/></Routes>{!admin&&<><Footer/><MobileNav/></>}</>}
-function Header(){let {user,cart,wish}=useContext(C),[search,setSearch]=useState(''),[menu,setMenu]=useState(false);let nav=useNavigate();return <><div className="announcement">A LITTLE SOMETHING FOR YOUR EVERYDAY <span>✳</span> FREE SHIPPING ABOVE ₹1,999</div><header className="header"><button className="mobile-menu icon" onClick={()=>setMenu(!menu)} aria-label="Toggle menu">{menu?<X/>:<Menu/>}</button><Link to="/" className="logo">BUNAVAT<span>®</span></Link><form className="searchbar" onSubmit={e=>{e.preventDefault();nav('/search?q='+encodeURIComponent(search))}}><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search for your next favourite"/><span>SEARCH</span></form><div className="header-icons"><Link to={user?'/account':'/login'} aria-label="Account"><UserRound/><small>ACCOUNT</small></Link><Link to="/wishlist" aria-label="Wishlist"><Heart/><small>WISHLIST</small>{wish.length>0&&<b>{wish.length}</b>}</Link><Link to="/cart" aria-label="Shopping bag"><ShoppingBag/><small>BAG</small>{cart.length>0&&<b>{cart.reduce((s,x)=>s+x.quantity,0)}</b>}</Link></div></header><nav className={'nav '+(menu?'open':'')}><Link onClick={()=>setMenu(false)} to="/search">SHOP ALL</Link><Link onClick={()=>setMenu(false)} to="/women">WOMEN</Link><Link onClick={()=>setMenu(false)} to="/men">MEN</Link><Link onClick={()=>setMenu(false)} to="/search?sort=newest">NEW ARRIVALS</Link><Link onClick={()=>setMenu(false)} to="/search">BESTSELLERS</Link><Link className="sale" onClick={()=>setMenu(false)} to="/search">OFFERS</Link></nav><form className="mobile-search" onSubmit={e=>{e.preventDefault();nav('/search?q='+encodeURIComponent(search))}}><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search for your next favourite"/></form></>}
-function Card({p}){let {user,wish,setWish,notify}=useContext(C);let saved=wish.some(x=>x.id===p.id);async function toggle(e){e.preventDefault();if(!user){notify('Please sign in to save your favourites');return}try{await api('/wishlist/'+p.id,{method:'POST'});setWish(await api('/wishlist'));notify(saved?'Removed from wishlist':'Saved to wishlist')}catch(e){notify(e.message)}}return <article className="product-card"><div className="product-image"><Link to={'/product/'+p.slug}><img src={p.image} alt={p.name}/></Link>{p.sale_price<p.price&&<span className="badge">{Math.round((1-p.sale_price/p.price)*100)}% OFF</span>}<button className={'heart '+(saved?'saved':'')} onClick={toggle} aria-label="Add to wishlist"><Heart size={17} fill={saved?'currentColor':'none'}/></button></div><div className="product-meta"><span>{p.gender} / {p.category}</span>{p.new_arrival===1&&<span className="stars">✦ NEW</span>}</div><Link className="product-name" to={'/product/'+p.slug}>{p.name}</Link><div className="price">{money(p.sale_price)} {p.sale_price<p.price&&<del>{money(p.price)}</del>}</div></article>}
-function Section({eyebrow,title,subtitle,products,link='/search',dark=false}){return <section className={'section wrap '+(dark?'dark-section':'')}><div className="section-heading"><div><div className="eyebrow">{eyebrow}</div><h2>{title}</h2>{subtitle&&<p>{subtitle}</p>}</div><Link to={link} className="text-link">VIEW ALL <ArrowRight size={16}/></Link></div><div className="products-grid">{products.map(p=><Card key={p.id} p={p}/>)}</div>{!products.length&&<p className="section-empty">New styles coming soon.</p>}</section>}
-function Home(){let [products,setProducts]=useState([]);useEffect(()=>{api('/products').then(setProducts)},[]);let pick=(gender)=>products.filter(p=>p.gender===gender||p.gender==='Unisex').slice(0,4);return <><div className="hero wrap"><img src="/images/hero.png" alt="Woman in an ivory outfit in a sunlit courtyard"/><div className="hero-copy"><div className="hero-tag"><span></span> THE EVERYDAY EDIT / 2026</div><h1>For the art of<br/><em>being you.</em></h1><p>Thoughtfully made pieces for the everyday<br className="desktop"/> moments that feel like everything.</p><Link className="button light" to="/search">EXPLORE THE COLLECTION <ArrowRight size={17}/></Link><div className="hero-bottom"><b>THE EVERYDAY EDIT</b><span></span> 01</div></div><div className="hero-side">THE NEW WAY TO EVERYDAY — BUNAVAT</div></div><div className="benefits wrap"><div><Truck/><span><b>FREE SHIPPING</b><small>On orders above ₹1,999</small></span></div><div><RotateCcw/><span><b>EASY RETURNS</b><small>Made simple, for you</small></span></div><div><ShieldCheck/><span><b>THOUGHTFULLY MADE</b><small>Style that stays with you</small></span></div><div className="benefit-note">A LITTLE MORE TO LOVE <span>✳</span></div></div><section className="category-section wrap"><div className="section-heading"><div><div className="eyebrow">A GOOD PLACE TO START</div><h2>Find your kind of style<span className="dot">.</span></h2><p>Good clothes, good days. Explore the pieces you'll reach for again and again.</p></div><Link className="text-link" to="/search">SHOP ALL CATEGORIES <ArrowRight size={16}/></Link></div><div className="categories"><Link to="/women"><div><img src="/images/women.png"/></div><b>Women</b><small>THE EVERYDAY EDIT</small></Link><Link to="/men"><div><img src="/images/men.png"/></div><b>Men</b><small>EFFORTLESS ESSENTIALS</small></Link><Link to="/category/Shirts"><div><img src="/images/man-shirt.png"/></div><b>Shirts</b><small>THE FOREVER FAVOURITES</small></Link><Link to="/category/Dresses"><div><img src="/images/dress.png"/></div><b>Dresses</b><small>MADE TO MOVE</small></Link><Link to="/category/Co-ords"><div><img src="/images/women.png"/></div><b>Co-ords</b><small>BETTER TOGETHER</small></Link><Link to="/search"><div className="category-all"><ArrowUpRight/><span>GOOD STYLE<br/>STARTS HERE</span></div><b>Shop all</b><small>DISCOVER MORE</small></Link></div></section><Section eyebrow="THE ONES TO KNOW" title={<>New in, just for you<span className="dot">.</span></>} subtitle="Fresh finds for wherever the day takes you." products={products.slice(0,4)}/><div className="editorial wrap"><div className="editorial-photo"><img src="/images/men.png" alt="Men's linen collection"/><span>THE MEN'S EDIT / 01</span></div><div className="editorial-copy"><div className="eyebrow">EASY DOES IT</div><h2>Good style.<br/><em>Every day.</em></h2><p>Meet the pieces that do it all. Easy silhouettes, considered details, and everyday comfort that feels just right.</p><Link className="button dark" to="/men">SHOP MEN'S COLLECTION <ArrowRight size={17}/></Link><div className="editorial-number">B / 01 <span>MADE FOR REAL LIFE</span></div></div><div className="editorial-photo last"><img src="/images/dress.png" alt="Women's dress collection"/><span>THE WOMEN'S EDIT / 02</span></div></div><Section eyebrow="CURATED FOR YOU" title={<>The women's edit<span className="dot">.</span></>} subtitle="Considered pieces, endless possibilities." products={pick('Women')} link="/women"/><div className="promo wrap"><div><div className="eyebrow">A LITTLE TREAT FROM US</div><h2>Good things come in your size.</h2><p>Discover everyday favourites made to be worn on repeat.</p></div><Link className="button dark" to="/search">DISCOVER YOURS <ArrowRight size={17}/></Link></div><Section eyebrow="THE EVERYDAY LINEUP" title={<>Made for him<span className="dot">.</span></>} subtitle="The pieces you'll keep coming back to." products={pick('Men')} link="/men"/><div className="story wrap"><div className="story-img"><img src="/images/women.png" alt="BUNAVAT everyday clothing"/></div><div className="story-copy"><div className="eyebrow">A NOTE FROM BUNAVAT</div><h2>Wear what<br/><em>feels like you.</em></h2><p>We believe getting dressed should feel good. That's why we bring together easy, thoughtful styles for all the little moments in between.</p><Link className="text-link" to="/about">GET TO KNOW US <ArrowRight size={16}/></Link></div></div><Newsletter/></>}
-function Newsletter(){let [email,setEmail]=useState(''),{notify}=useContext(C);return <section className="newsletter"><div className="wrap newsletter-inner"><div><div className="eyebrow">LET'S KEEP IN TOUCH</div><h2>A little good in your inbox<span className="dot">.</span></h2><p>New arrivals, thoughtful edits and a little inspiration. No clutter, promise.</p></div><form onSubmit={async e=>{e.preventDefault();try{await api('/newsletter',{method:'POST',body:JSON.stringify({email})});setEmail('');notify('You’re on the list!')}catch(e){notify(e.message)}}}><label htmlFor="newsletter">YOUR EMAIL ADDRESS</label><div><input id="newsletter" type="email" required placeholder="Enter your email address" value={email} onChange={e=>setEmail(e.target.value)}/><button aria-label="Subscribe"><ArrowRight/></button></div></form></div></section>}
-function Catalog({gender}){let [products,setProducts]=useState([]),[sort,setSort]=useState('newest');let loc=useLocation(),params=useParams();let query=new URLSearchParams(loc.search).get('q')||'';useEffect(()=>{api('/products?'+new URLSearchParams({...(gender?{gender}:{}),...(query?{search:query}:{}),...(params.slug?{category:params.slug}:{}),sort})).then(setProducts)},[gender,query,params.slug,sort]);return <main className="wrap page"><div className="breadcrumbs"><Link to="/">Home</Link> / {gender||params.slug||'Shop all'}</div><div className="catalog-head"><div><div className="eyebrow">THE BUNAVAT COLLECTION</div><h1>{query?'Search: '+query:gender?gender+"'s collection":params.slug||'All the good things'}<span className="dot">.</span></h1><p>Thoughtful pieces for the everyday and everything in between.</p></div><div className="sort">{products.length} PRODUCTS <select value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">Newest</option><option value="price-low">Price: Low to high</option><option value="price-high">Price: High to low</option></select></div></div><div className="filter-pills"><Link to="/search">All</Link><Link to="/women">Women</Link><Link to="/men">Men</Link><Link to="/category/Shirts">Shirts</Link><Link to="/category/Dresses">Dresses</Link><Link to="/category/Co-ords">Co-ords</Link></div><div className="products-grid catalog-grid">{products.map(p=><Card key={p.id} p={p}/>)}</div>{!products.length&&<p className="empty">New styles coming soon. Try another search or category.</p>}</main>}
-function Product(){
- let {slug}=useParams(),[p,setP]=useState(null),[variant,setVariant]=useState(''),[colour,setColour]=useState(''),[photo,setPhoto]=useState(''),[error,setError]=useState(''),{user,setCart,notify}=useContext(C),nav=useNavigate();
- useEffect(()=>{setP(null);setError('');api('/products/'+slug).then(x=>{setP(x);let v=x.variants.find(v=>v.available&&v.stock>0)||x.variants[0];let name=v?.colour||'';setColour(name);setVariant(v?.available&&v.stock?String(v.id):'');let group=x.colours?.find(c=>c.name===name);setPhoto(group?.images?.[0]||x.images?.[0]||x.image)}).catch(e=>setError(e.message))},[slug]);
- if(!p)return <main className="wrap page">{error||'Loading...'}</main>;
- let selected=p.variants.find(v=>String(v.id)===variant),colours=(p.colours||[]).filter(c=>p.variants.some(v=>v.colour===c.name)),gallery=colours.find(c=>c.name===colour)?.images;gallery=gallery?.length?gallery:(p.images?.length?p.images:[p.image]);let displayedPrice=selected?.effective_price??p.sale_price;
- function chooseColour(c){setColour(c.name);let v=p.variants.find(v=>v.colour===c.name&&v.available&&v.stock>0);setVariant(v?String(v.id):'');setPhoto(c.images?.[0]||p.images?.[0]||p.image)}
- return <main className="wrap page"><div className="breadcrumbs"><Link to="/">Home</Link> / {p.gender} / {p.name}</div><div className="product-detail"><div><div className="detail-image"><img src={photo} alt={p.name}/></div>{gallery.length>1&&<div className="gallery-thumbs">{gallery.map((img,i)=><button key={img} className={photo===img?'selected':''} onClick={()=>setPhoto(img)} aria-label={'View image '+(i+1)}><img src={img} alt=""/></button>)}</div>}</div><div className="detail-copy"><div className="eyebrow">{p.brand||'BUNAVAT'} / {p.category.toUpperCase()}</div><h1>{p.name}</h1><p className="detail-price">{money(displayedPrice)} {displayedPrice<p.price&&<><del>{money(p.price)}</del> <span>{Math.round((1-displayedPrice/p.price)*100)}% OFF</span></>}</p><p className="muted">Inclusive of all taxes</p><div className="divider"></div><p>{p.description}</p><p><b>Colour:</b> {colour||'Unavailable'}</p><div className="colour-swatches">{colours.map(c=><button key={c.name} className={c.name===colour?'selected':''} onClick={()=>chooseColour(c)} aria-label={'Colour '+c.name} aria-pressed={c.name===colour}><span style={{background:c.code||'#e6e5df'}}/>{c.name}</button>)}</div><p><b>Select size</b></p><div className="sizes">{p.variants.filter(v=>v.colour===colour).map(v=><button disabled={!v.stock||!v.available} className={variant===String(v.id)?'selected':''} onClick={()=>setVariant(String(v.id))} key={v.id}>{v.size}</button>)}</div><p className="stock">{selected?`${selected.stock} available`:'Currently unavailable'}</p><button className="button dark full" disabled={!selected} onClick={async()=>{if(!user){nav('/login');return}try{setCart(await api('/cart',{method:'POST',body:JSON.stringify({variant_id:Number(variant),quantity:1})}));notify('Added to your bag')}catch(e){notify(e.message)}}}>ADD TO BAG <ShoppingBag size={17}/></button><div className="product-info"><p><Truck size={18}/> Free shipping on orders above ₹1,999</p><p><RotateCcw size={18}/> Easy returns on eligible orders</p>{p.material&&<p><b>Fabric</b> &nbsp; {p.material}</p>}{p.fit&&<p><b>Fit</b> &nbsp; {p.fit}</p>}{p.specifications&&<p><b>Specifications</b> &nbsp; {p.specifications}</p>}<p><b>SKU</b> &nbsp; {selected?.sku||p.sku}</p></div></div></div><Reviews product={p}/></main>
+import React, { useEffect, useState, createContext, useContext } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  useNavigate,
+  useParams,
+  useLocation,
+} from "react-router-dom";
+import {
+  Search,
+  UserRound,
+  Heart,
+  ShoppingBag,
+  ArrowRight,
+  ChevronRight,
+  ChevronLeft,
+  Truck,
+  RotateCcw,
+  ShieldCheck,
+  Menu,
+  X,
+  Plus,
+  Minus,
+  Instagram,
+  Facebook,
+  ArrowUpRight,
+} from "lucide-react";
+import "./style.css";
+import AdminApp from "./admin/AdminApp.jsx";
+import { ThemeToggle } from "./theme.jsx";
+const C = createContext();
+const money = (n) => "₹" + Number(n).toLocaleString("en-IN");
+async function api(url, options = {}) {
+  let r = await fetch("/api" + url, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
+  let data = await r.json();
+  if (!r.ok) throw Error(data.error || "Something went wrong");
+  return data;
 }
-function Reviews({product}){let [reviews,setReviews]=useState([]),[rating,setRating]=useState('5'),[body,setBody]=useState(''),{user,notify}=useContext(C);useEffect(()=>{api('/products/'+product.slug+'/reviews').then(setReviews)},[product.slug]);return <section className="reviews"><div className="section-heading"><div><div className="eyebrow">THOUGHTS FROM THE COMMUNITY</div><h2>Customer reviews<span className="dot">.</span></h2><p>{reviews.length?`${(reviews.reduce((s,r)=>s+r.rating,0)/reviews.length).toFixed(1)} / 5 · ${reviews.length} review${reviews.length===1?'':'s'}`:'No reviews yet.'}</p></div></div>{reviews.map(r=><div className="review" key={r.id}><b>{'★'.repeat(r.rating)}{'☆'.repeat(5-r.rating)}</b><p>{r.body}</p><small>{r.name} · Verified purchase · {r.created_at}</small>{user&&<button onClick={async()=>{let reason=prompt('Why are you reporting this review?');if(!reason)return;try{await api('/reviews/'+r.id+'/report',{method:'POST',body:JSON.stringify({reason})});notify('Review reported')}catch(e){notify(e.message)}}}>Report</button>}</div>)}{user&&<form className="review-form" onSubmit={async e=>{e.preventDefault();try{await api('/products/'+product.slug+'/reviews',{method:'POST',body:JSON.stringify({rating:Number(rating),body})});setBody('');notify('Review submitted for moderation')}catch(e){notify(e.message)}}}><h3>Write a review</h3><p>Reviews are available to customers who received this item.</p><label>Rating <select value={rating} onChange={e=>setRating(e.target.value)}>{[5,4,3,2,1].map(n=><option key={n} value={n}>{n} / 5</option>)}</select></label><textarea required minLength={5} maxLength={2000} placeholder="Share your thoughts" value={body} onChange={e=>setBody(e.target.value)}/><button className="button dark">SUBMIT REVIEW <ArrowRight size={16}/></button></form>}</section>}
-function Auth({register=false}){let [form,setForm]=useState({name:'',email:'',password:''}),{refresh,notify}=useContext(C),nav=useNavigate();return <main className="narrow page"><div className="eyebrow">WELCOME TO BUNAVAT</div><h1>{register?'Create your account':'Good to see you again'}<span className="dot">.</span></h1><p className="muted">{register?'A little more style, made personal.':'Sign in to keep your favourites close.'}</p><form className="form" onSubmit={async e=>{e.preventDefault();try{await api(register?'/register':'/login',{method:'POST',body:JSON.stringify(form)});await refresh();nav('/account')}catch(e){notify(e.message)}}}>{register&&<label>Name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>}<label>Email address<input type="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/></label><label>Password<input type="password" required minLength="8" value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/></label><button className="button dark full">{register?'CREATE ACCOUNT':'SIGN IN'} <ArrowRight size={17}/></button></form><p className="form-switch">{register?'Already have an account?':'New around here?'} <Link to={register?'/login':'/register'}>{register?'Sign in':'Create an account'}</Link></p></main>}
-function Cart(){let {cart,setCart,user,notify}=useContext(C);async function update(id,method,quantity){try{setCart(await api('/cart/'+id,{method,body:method==='PATCH'?JSON.stringify({quantity}):undefined}))}catch(e){notify(e.message)}}let subtotal=cart.reduce((s,i)=>s+i.sale_price*i.quantity,0);return <main className="wrap page"><div className="eyebrow">YOUR EDIT</div><h1>Your shopping bag<span className="dot">.</span></h1>{!user?<p>Please <Link to="/login">sign in</Link> to view your bag.</p>:!cart.length?<div className="empty">Your bag is waiting for something good.<br/><Link className="button dark" to="/search">EXPLORE THE COLLECTION <ArrowRight size={16}/></Link></div>:<div className="cart-layout"><div>{cart.map(i=><div className="cart-item" key={i.variant_id}><img src={i.image}/><div><Link to={'/product/'+i.slug}><b>{i.name}</b></Link><p>{i.colour} / {i.size}</p><div className="quantity"><button onClick={()=>i.quantity>1&&update(i.variant_id,'PATCH',i.quantity-1)}><Minus size={14}/></button>{i.quantity}<button onClick={()=>update(i.variant_id,'PATCH',i.quantity+1)}><Plus size={14}/></button></div><button className="remove" onClick={()=>update(i.variant_id,'DELETE')}>Remove</button></div><b>{money(i.sale_price*i.quantity)}</b></div>)}</div><div className="summary"><h2>Order summary</h2><div><span>Subtotal</span><b>{money(subtotal)}</b></div><div><span>Shipping</span><b>{subtotal>=1999?'FREE':money(99)}</b></div><div className="total"><span>Total</span><b>{money(subtotal+(subtotal>=1999?0:99))}</b></div><Link to="/checkout" className="button dark full">CONTINUE TO CHECKOUT <ArrowRight size={17}/></Link><small>Shipping is free on orders above ₹1,999.</small></div></div>}</main>}
-function Checkout(){let {cart,refresh,notify}=useContext(C),nav=useNavigate(),[form,setForm]=useState({name:'',phone:'',address:'',city:'',state:'',pin:'',instructions:'',payment_method:'COD'});return <main className="narrow page"><div className="eyebrow">ALMOST THERE</div><h1>Delivery details<span className="dot">.</span></h1><p className="muted">Your order will be confirmed after inventory is checked.</p><form className="form" onSubmit={async e=>{e.preventDefault();try{let o=await api('/orders',{method:'POST',body:JSON.stringify(form)});await refresh();nav('/account/orders/'+o.id)}catch(e){notify(e.message)}}}>{[['name','Full name'],['phone','Phone number'],['address','Complete address'],['city','City'],['state','State'],['pin','PIN code'],['instructions','Delivery instructions (optional)']].map(([key,label])=><label key={key}>{label}<input required={key!=='instructions'} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})}/></label>)}<div className="payment-box"><b>Payment method</b><p>Cash on Delivery</p><small>Online payments are not currently configured.</small></div><button disabled={!cart.length} className="button dark full">PLACE ORDER <ArrowRight size={17}/></button></form></main>}
-function Wishlist(){let {wish,user}=useContext(C);return <main className="wrap page"><div className="eyebrow">SAVED FOR LATER</div><h1>Your wishlist<span className="dot">.</span></h1>{!user?<p>Please <Link to="/login">sign in</Link> to view your wishlist.</p>:wish.length?<div className="products-grid">{wish.map(p=><Card key={p.id} p={p}/>)}</div>:<p className="empty">Your wishlist is waiting for its first favourite.</p>}</main>}
-function Account(){let {user,refresh}=useContext(C),nav=useNavigate();return <main className="narrow page"><div className="eyebrow">YOUR BUNAVAT</div><h1>{user?'Hello, '+user.name:'Your account'}<span className="dot">.</span></h1>{user?<div className="account-links"><p>{user.email}</p><Link to="/account/orders">Your orders <ArrowRight size={18}/></Link><Link to="/wishlist">Your wishlist <ArrowRight size={18}/></Link>{user.role==='admin'&&<Link to="/admin">Admin dashboard <ArrowRight size={18}/></Link>}<button onClick={async()=>{await api('/logout',{method:'POST'});await refresh();nav('/')}}>Sign out</button></div>:<Link className="button dark" to="/login">SIGN IN <ArrowRight size={17}/></Link>}</main>}
-function Orders(){let [orders,setOrders]=useState([]),{user}=useContext(C);useEffect(()=>{if(user)api('/orders').then(setOrders)},[user]);return <main className="wrap page"><div className="eyebrow">YOUR ACCOUNT</div><h1>Your orders<span className="dot">.</span></h1>{!user?<Link to="/login">Sign in to see your orders</Link>:orders.length?orders.map(o=><Link className="order-row" key={o.id} to={'/account/orders/'+o.id}><div><b>{o.number}</b><p>{o.created_at} · {money(o.total)}</p></div><span>{o.status} <ChevronRight size={16}/></span></Link>):<p className="empty">No orders yet. Your next favourite is waiting.</p>}</main>}
-function Order(){let {id}=useParams(),[o,setO]=useState(null),[reason,setReason]=useState(''),{notify}=useContext(C);let load=()=>api('/orders/'+id).then(setO).catch(e=>notify(e.message));useEffect(()=>{load()},[id]);async function action(type,body={}){try{await api('/orders/'+id+'/'+type,{method:'POST',body:JSON.stringify(body)});load();notify(type==='cancel'?'Order cancelled':'Return requested')}catch(e){notify(e.message)}}if(!o)return <main className="wrap page">Loading order...</main>;return <main className="wrap page"><div className="eyebrow">ORDER DETAILS</div><h1>{o.number}<span className="dot">.</span></h1><p>{o.status} · {o.payment_method} · {o.payment_status}</p><div className="cart-layout"><div><h2>Items</h2>{o.items.map(i=><div className="order-row" key={i.id}><div><b>{i.name}</b><p>{i.size} / {i.colour} × {i.quantity}</p></div><b>{money(i.price*i.quantity)}</b></div>)}<h2>Order timeline</h2>{o.timeline.map(t=><div className="timeline" key={t.id}><b>{t.status}</b><small>{t.created_at} {t.note}</small></div>)}{o.tracking&&<p>Tracking: {o.tracking}</p>}</div><div className="summary"><h2>Delivery</h2><p>{o.name}<br/>{o.address}<br/>{o.city}, {o.state} {o.pin}<br/>{o.phone}</p><div className="total"><span>Total</span><b>{money(o.total)}</b></div>{['Order Placed','Processing'].includes(o.status)&&<button className="outline-button" onClick={()=>{if(confirm('Cancel this order?'))action('cancel')}}>Cancel order</button>}{o.status==='Delivered'&&!o.return_request&&<><input placeholder="Reason for return" value={reason} onChange={e=>setReason(e.target.value)}/><button className="outline-button" onClick={()=>action('return',{reason})}>Request return</button></>}{o.return_request&&<p>Return: {o.return_request.status}</p>}</div></div></main>}
-const info={about:['A little about us','BUNAVAT is about the art of everyday dressing. We bring together thoughtful pieces and easy silhouettes for the moments that make a life.'],contact:['Let’s talk','For questions about your order, please contact the store owner. Contact details will be published here when configured.'],returns:['Returns','You can request a return from the details page of a delivered order. Requests are reviewed by the store team.'], 'return-policy':['Return policy','Return requests can be made from your delivered order. Approval is subject to review by the store team. Contact the store before sending any item back.'], 'shipping-policy':['Shipping policy','Shipping is free on orders of ₹1,999 and above. A ₹99 shipping charge applies below this amount. Delivery and tracking details will be shared when available.'], 'privacy-policy':['Privacy policy','Account, delivery and order information is used to provide store services. Contact the store owner with privacy questions.'],terms:['Terms & conditions','Orders are subject to availability and confirmation. Product prices and availability may change.']};
-function Info(){let {page}=useParams(),item=info[page]||['Page not found','The page you are looking for is not available.'];return <main className="narrow page"><div className="eyebrow">BUNAVAT / THE DETAILS</div><h1>{item[0]}<span className="dot">.</span></h1><p className="info-text">{item[1]}</p><Link className="text-link" to="/search">EXPLORE THE COLLECTION <ArrowRight size={16}/></Link></main>}
-function Footer(){return <footer><div className="wrap"><div className="footer-main"><div className="footer-brand"><Link className="logo" to="/">BUNAVAT<span>®</span></Link><p>Good clothes for the life you live.<br/>Made for your everyday, and every you.</p><div className="social"><Instagram size={19}/><Facebook size={19}/></div></div><div><h4>EXPLORE</h4><Link to="/women">Women</Link><Link to="/men">Men</Link><Link to="/search">New arrivals</Link><Link to="/search">Shop all</Link></div><div><h4>HERE TO HELP</h4><Link to="/contact">Contact us</Link><Link to="/account/orders">Track your order</Link><Link to="/shipping-policy">Shipping policy</Link><Link to="/return-policy">Returns & exchanges</Link></div><div><h4>THE DETAILS</h4><Link to="/about">About us</Link><Link to="/privacy-policy">Privacy policy</Link><Link to="/terms">Terms & conditions</Link></div><div className="footer-note"><span>MADE FOR</span><strong>every<br/><em>you.</em></strong><small>THOUGHTFULLY, BUNAVAT ✳</small></div></div><div className="footer-bottom"><span>© {new Date().getFullYear()} BUNAVAT. ALL RIGHTS RESERVED.</span><span>MADE FOR EVERYDAY LIFE IN INDIA &nbsp; ♡</span></div></div></footer>}
-function MobileNav(){return <div className="mobile-bottom"><Link to="/"><span>⌂</span>Home</Link><Link to="/search"><Search size={20}/>Search</Link><Link to="/wishlist"><Heart size={20}/>Saved</Link><Link to="/cart"><ShoppingBag size={20}/>Bag</Link><Link to="/account"><UserRound size={20}/>Account</Link></div>}
-createRoot(document.getElementById('root')).render(<App/>);
+function App() {
+  let [user, setUser] = useState(null),
+    [cart, setCart] = useState([]),
+    [wish, setWish] = useState([]),
+    [toast, setToast] = useState("");
+  const notify = (s) => {
+    setToast(s);
+    setTimeout(() => setToast(""), 3000);
+  };
+  const refresh = async () => {
+    let d = await api("/me");
+    setUser(d.user);
+    if (d.user) {
+      setCart(await api("/cart"));
+      setWish(await api("/wishlist"));
+    } else {
+      setCart([]);
+      setWish([]);
+    }
+  };
+  useEffect(() => {
+    refresh();
+  }, []);
+  return (
+    <C.Provider
+      value={{ user, setUser, cart, setCart, wish, setWish, refresh, notify }}
+    >
+      <BrowserRouter>
+        <SiteRoutes />
+        {toast && <div className="toast">{toast}</div>}
+      </BrowserRouter>
+    </C.Provider>
+  );
+}
+function SiteRoutes() {
+  let loc = useLocation(),
+    { user, notify } = useContext(C),
+    admin = loc.pathname === "/admin" || loc.pathname.startsWith("/admin/");
+  return (
+    <>
+      {!admin && <Header />}
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/men" element={<Catalog gender="Men" />} />
+        <Route path="/women" element={<Catalog gender="Women" />} />
+        <Route path="/search" element={<Catalog />} />
+        <Route path="/category/:slug" element={<Catalog />} />
+        <Route path="/product/:slug" element={<Product />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="/register" element={<Auth register />} />
+        <Route path="/wishlist" element={<Wishlist />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/account/orders" element={<Orders />} />
+        <Route path="/account/orders/:id" element={<Order />} />
+        <Route
+          path="/admin/*"
+          element={
+            <AdminApp user={user} notify={notify} api={api} money={money} />
+          }
+        />
+        <Route path="/:page" element={<Info />} />
+      </Routes>
+      {!admin && (
+        <>
+          <Footer />
+          <MobileNav />
+        </>
+      )}
+    </>
+  );
+}
+function Header() {
+  let { user, cart, wish } = useContext(C),
+    [search, setSearch] = useState(""),
+    [menu, setMenu] = useState(false);
+  let nav = useNavigate();
+  return (
+    <>
+      <div className="announcement">
+        A LITTLE SOMETHING FOR YOUR EVERYDAY <span>✳</span> FREE SHIPPING ABOVE
+        ₹1,999
+      </div>
+      <header className="header">
+        <button
+          className="mobile-menu icon"
+          onClick={() => setMenu(!menu)}
+          aria-label="Toggle menu"
+        >
+          {menu ? <X /> : <Menu />}
+        </button>
+        <Link to="/" className="logo">
+          BUNAVAT<span>®</span>
+        </Link>
+        <form
+          className="searchbar"
+          onSubmit={(e) => {
+            e.preventDefault();
+            nav("/search?q=" + encodeURIComponent(search));
+          }}
+        >
+          <Search size={18} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search for your next favourite"
+          />
+          <span>SEARCH</span>
+        </form>
+        <div className="header-icons">
+          <ThemeToggle />
+          <Link to={user ? "/account" : "/login"} aria-label="Account">
+            <UserRound />
+            <small>ACCOUNT</small>
+          </Link>
+          <Link to="/wishlist" aria-label="Wishlist">
+            <Heart />
+            <small>WISHLIST</small>
+            {wish.length > 0 && <b>{wish.length}</b>}
+          </Link>
+          <Link to="/cart" aria-label="Shopping bag">
+            <ShoppingBag />
+            <small>BAG</small>
+            {cart.length > 0 && (
+              <b>{cart.reduce((s, x) => s + x.quantity, 0)}</b>
+            )}
+          </Link>
+        </div>
+      </header>
+      <nav className={"nav " + (menu ? "open" : "")}>
+        <Link onClick={() => setMenu(false)} to="/search">
+          SHOP ALL
+        </Link>
+        <Link onClick={() => setMenu(false)} to="/women">
+          WOMEN
+        </Link>
+        <Link onClick={() => setMenu(false)} to="/men">
+          MEN
+        </Link>
+        <Link onClick={() => setMenu(false)} to="/search?new=1">
+          NEW ARRIVALS
+        </Link>
+
+      </nav>
+      <form
+        className="mobile-search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          nav("/search?q=" + encodeURIComponent(search));
+        }}
+      >
+        <Search size={17} />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search for your next favourite"
+        />
+      </form>
+    </>
+  );
+}
+function Card({ p }) {
+  let { user, wish, setWish, notify } = useContext(C);
+  let saved = wish.some((x) => x.id === p.id);
+  async function toggle(e) {
+    e.preventDefault();
+    if (!user) {
+      notify("Please sign in to save your favourites");
+      return;
+    }
+    try {
+      await api("/wishlist/" + p.id, { method: "POST" });
+      setWish(await api("/wishlist"));
+      notify(saved ? "Removed from wishlist" : "Saved to wishlist");
+    } catch (e) {
+      notify(e.message);
+    }
+  }
+  return (
+    <article className="product-card">
+      <div className="product-image">
+        <Link to={"/product/" + p.slug}>
+          <img src={p.image} alt={p.name} />
+          {p.images?.find(img => img !== p.image) && <img className="product-image-alt" src={p.images.find(img => img !== p.image)} alt="" />}
+          <span className="card-view">VIEW DETAILS <ArrowRight size={15}/></span>
+        </Link>
+        {p.sale_price < p.price && (
+          <span className="badge">
+            {Math.round((1 - p.sale_price / p.price) * 100)}% OFF
+          </span>
+        )}
+        <button
+          className={"heart " + (saved ? "saved" : "")}
+          onClick={toggle}
+          aria-label="Add to wishlist"
+        >
+          <Heart size={17} fill={saved ? "currentColor" : "none"} />
+        </button>
+      </div>
+      <div className="product-meta">
+        <span>
+          {p.gender} / {p.category}
+        </span>
+        {p.new_arrival === 1 && <span className="stars">✦ NEW</span>}
+      </div>
+      {p.colours?.length > 0 && <div className="card-swatches" aria-label={p.colours.map(c=>c.name).join(', ')}>{p.colours.slice(0,6).map(c=><span key={c.name} title={c.name} style={{background:c.code || '#ddd'}} />)}</div>}
+      <Link className="product-name" to={"/product/" + p.slug}>
+        {p.name}
+      </Link>
+      <div className="price">
+        {money(p.sale_price)}{" "}
+        {p.sale_price < p.price && <del>{money(p.price)}</del>}
+      </div>
+    </article>
+  );
+}
+function Section({
+  eyebrow,
+  title,
+  subtitle,
+  products,
+  link = "/search",
+  dark = false,
+}) {
+  return (
+    <section className={"section wrap " + (dark ? "dark-section" : "")}>
+      <div className="section-heading">
+        <div>
+          <div className="eyebrow">{eyebrow}</div>
+          <h2>{title}</h2>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        <Link to={link} className="text-link">
+          VIEW ALL <ArrowRight size={16} />
+        </Link>
+      </div>
+      <div className="products-grid">
+        {products ? products.map((p) => (
+          <Card key={p.id} p={p} />
+        )) : Array.from({length:4},(_,i)=><div className="product-skeleton" key={i} aria-label="Loading products"/>)}
+      </div>
+      {products && !products.length && (
+        <p className="section-empty">New styles coming soon.</p>
+      )}
+    </section>
+  );
+}
+function Home() {
+  let [products, setProducts] = useState(null), [bestSellers, setBestSellers] = useState([]);
+  useEffect(() => {
+    api("/products").then(setProducts).catch(() => setProducts([]));
+    api("/best-sellers").then(setBestSellers).catch(() => {});
+  }, []);
+  let pick = (gender) =>
+    products?.filter((p) => p.gender === gender || p.gender === "Unisex")
+      .slice(0, 4);
+  return (
+    <>
+      <div className="hero wrap">
+        <img
+          src="/images/editorial-hero.jpg"
+          alt="Fashion editorial in a sunlit architectural courtyard"
+        />
+        <div className="hero-copy">
+          <div className="hero-tag">
+            <span></span> THE BUNAVAT EDIT / 01
+          </div>
+          <h1>
+            Made for the
+            <br />
+            <em>way you live.</em>
+          </h1>
+          <p>
+            Thoughtfully made pieces for the everyday
+            <br className="desktop" /> moments that feel like everything.
+          </p>
+          <Link className="button light" to="/search">
+            EXPLORE THE COLLECTION <ArrowRight size={17} />
+          </Link>
+          <div className="hero-bottom">
+            <b>THE EVERYDAY EDIT</b>
+            <span></span> 01
+          </div>
+        </div>
+        <div className="hero-side">THE NEW WAY TO EVERYDAY — BUNAVAT</div>
+      </div>
+      <div className="benefits wrap">
+        <div>
+          <Truck />
+          <span>
+            <b>FREE SHIPPING</b>
+            <small>On orders above ₹1,999</small>
+          </span>
+        </div>
+        <div>
+          <RotateCcw />
+          <span>
+            <b>EASY RETURNS</b>
+            <small>Made simple, for you</small>
+          </span>
+        </div>
+        <div>
+          <ShieldCheck />
+          <span>
+            <b>THOUGHTFULLY MADE</b>
+            <small>Style that stays with you</small>
+          </span>
+        </div>
+        <div className="benefit-note">
+          A LITTLE MORE TO LOVE <span>✳</span>
+        </div>
+      </div>
+      <section className="category-section wrap">
+        <div className="section-heading">
+          <div>
+            <div className="eyebrow">A GOOD PLACE TO START</div>
+            <h2>
+              Find your kind of style<span className="dot">.</span>
+            </h2>
+            <p>
+              Good clothes, good days. Explore the pieces you'll reach for again
+              and again.
+            </p>
+          </div>
+          <Link className="text-link" to="/search">
+            SHOP ALL CATEGORIES <ArrowRight size={16} />
+          </Link>
+        </div>
+        <div className="categories">
+          <Link to="/women">
+            <div>
+              <img src="/images/women.png" />
+            </div>
+            <b>Women</b>
+            <small>THE EVERYDAY EDIT</small>
+          </Link>
+          <Link to="/men">
+            <div>
+              <img src="/images/men.png" />
+            </div>
+            <b>Men</b>
+            <small>EFFORTLESS ESSENTIALS</small>
+          </Link>
+          <Link to="/category/Shirts">
+            <div>
+              <img src="/images/man-shirt.png" />
+            </div>
+            <b>Shirts</b>
+            <small>THE FOREVER FAVOURITES</small>
+          </Link>
+          <Link to="/category/Dresses">
+            <div>
+              <img src="/images/dress.png" />
+            </div>
+            <b>Dresses</b>
+            <small>MADE TO MOVE</small>
+          </Link>
+          <Link to="/category/Co-ords">
+            <div>
+              <img src="/images/women.png" />
+            </div>
+            <b>Co-ords</b>
+            <small>BETTER TOGETHER</small>
+          </Link>
+          <Link to="/search">
+            <div className="category-all">
+              <ArrowUpRight />
+              <span>
+                GOOD STYLE
+                <br />
+                STARTS HERE
+              </span>
+            </div>
+            <b>Shop all</b>
+            <small>DISCOVER MORE</small>
+          </Link>
+        </div>
+      </section>
+      <Section
+        eyebrow="THE ONES TO KNOW"
+        link="/search?new=1"
+        title={
+          <>
+            New in, just for you<span className="dot">.</span>
+          </>
+        }
+        subtitle="Fresh finds for wherever the day takes you."
+        products={products?.filter(p => p.new_arrival === 1).slice(0, 4)}
+      />
+      {bestSellers.length > 0 && <Section eyebrow="CHOSEN BY YOU" title="The most loved" subtitle="The pieces customers have ordered most." products={bestSellers}/>}
+      <div className="editorial wrap">
+        <div className="editorial-photo">
+          <img src="/images/men.png" alt="Men's linen collection" />
+          <span>THE MEN'S EDIT / 01</span>
+        </div>
+        <div className="editorial-copy">
+          <div className="eyebrow">EASY DOES IT</div>
+          <h2>
+            Good style.
+            <br />
+            <em>Every day.</em>
+          </h2>
+          <p>
+            Meet the pieces that do it all. Easy silhouettes, considered
+            details, and everyday comfort that feels just right.
+          </p>
+          <Link className="button dark" to="/men">
+            SHOP MEN'S COLLECTION <ArrowRight size={17} />
+          </Link>
+          <div className="editorial-number">
+            B / 01 <span>MADE FOR REAL LIFE</span>
+          </div>
+        </div>
+        <div className="editorial-photo last">
+          <img src="/images/dress.png" alt="Women's dress collection" />
+          <span>THE WOMEN'S EDIT / 02</span>
+        </div>
+      </div>
+      <Section
+        eyebrow="CURATED FOR YOU"
+        title={
+          <>
+            The women's edit<span className="dot">.</span>
+          </>
+        }
+        subtitle="Considered pieces, endless possibilities."
+        products={pick("Women")}
+        link="/women"
+      />
+      <div className="promo wrap">
+        <div>
+          <div className="eyebrow">A LITTLE TREAT FROM US</div>
+          <h2>Good things come in your size.</h2>
+          <p>Discover everyday favourites made to be worn on repeat.</p>
+        </div>
+        <Link className="button dark" to="/search">
+          DISCOVER YOURS <ArrowRight size={17} />
+        </Link>
+      </div>
+      <Section
+        eyebrow="THE EVERYDAY LINEUP"
+        title={
+          <>
+            Made for him<span className="dot">.</span>
+          </>
+        }
+        subtitle="The pieces you'll keep coming back to."
+        products={pick("Men")}
+        link="/men"
+      />
+      <div className="story wrap">
+        <div className="story-img">
+          <img src="/images/women.png" alt="BUNAVAT everyday clothing" />
+        </div>
+        <div className="story-copy">
+          <div className="eyebrow">A NOTE FROM BUNAVAT</div>
+          <h2>
+            Wear what
+            <br />
+            <em>feels like you.</em>
+          </h2>
+          <p>
+            We believe getting dressed should feel good. That's why we bring
+            together easy, thoughtful styles for all the little moments in
+            between.
+          </p>
+          <Link className="text-link" to="/about">
+            GET TO KNOW US <ArrowRight size={16} />
+          </Link>
+        </div>
+      </div>
+      <Newsletter />
+    </>
+  );
+}
+function Newsletter() {
+  let [email, setEmail] = useState(""),
+    { notify } = useContext(C);
+  return (
+    <section className="newsletter">
+      <div className="wrap newsletter-inner">
+        <div>
+          <div className="eyebrow">LET'S KEEP IN TOUCH</div>
+          <h2>
+            A little good in your inbox<span className="dot">.</span>
+          </h2>
+          <p>
+            New arrivals, thoughtful edits and a little inspiration. No clutter,
+            promise.
+          </p>
+        </div>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await api("/newsletter", {
+                method: "POST",
+                body: JSON.stringify({ email }),
+              });
+              setEmail("");
+              notify("You’re on the list!");
+            } catch (e) {
+              notify(e.message);
+            }
+          }}
+        >
+          <label htmlFor="newsletter">YOUR EMAIL ADDRESS</label>
+          <div>
+            <input
+              id="newsletter"
+              type="email"
+              required
+              placeholder="Enter your email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button aria-label="Subscribe">
+              <ArrowRight />
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+function Catalog({ gender }) {
+  let [products, setProducts] = useState([]),
+    [sort, setSort] = useState("newest");
+  let loc = useLocation(),
+    params = useParams();
+  let query = new URLSearchParams(loc.search).get("q") || "", newOnly = new URLSearchParams(loc.search).get("new") === "1";
+  useEffect(() => {
+    api(
+      "/products?" +
+        new URLSearchParams({
+          ...(gender ? { gender } : {}),
+          ...(query ? { search: query } : {}),
+          ...(params.slug ? { category: params.slug } : {}),
+          ...(newOnly ? { new: '1' } : {}),
+          sort,
+        }),
+    ).then(setProducts);
+  }, [gender, query, params.slug, sort, newOnly]);
+  return (
+    <main className="wrap page">
+      <div className="breadcrumbs">
+        <Link to="/">Home</Link> / {gender || params.slug || "Shop all"}
+      </div>
+      <div className="catalog-head">
+        <div>
+          <div className="eyebrow">THE BUNAVAT COLLECTION</div>
+          <h1>
+            {query
+              ? "Search: " + query
+              : gender
+                ? gender + "'s collection"
+                : newOnly ? "New arrivals" : params.slug || "All the good things"}
+            <span className="dot">.</span>
+          </h1>
+          <p>Thoughtful pieces for the everyday and everything in between.</p>
+        </div>
+        <div className="sort">
+          {products.length} PRODUCTS{" "}
+          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="newest">Newest</option>
+            <option value="price-low">Price: Low to high</option>
+            <option value="price-high">Price: High to low</option>
+          </select>
+        </div>
+      </div>
+      <div className="filter-pills">
+        <Link to="/search">All</Link>
+        <Link to="/women">Women</Link>
+        <Link to="/men">Men</Link>
+        <Link to="/category/Shirts">Shirts</Link>
+        <Link to="/category/Dresses">Dresses</Link>
+        <Link to="/category/Co-ords">Co-ords</Link>
+      </div>
+      <div className="products-grid catalog-grid">
+        {products.map((p) => (
+          <Card key={p.id} p={p} />
+        ))}
+      </div>
+      {!products.length && (
+        <p className="empty">
+          New styles coming soon. Try another search or category.
+        </p>
+      )}
+    </main>
+  );
+}
+function Product() {
+  let { slug } = useParams(),
+    [p, setP] = useState(null),
+    [variant, setVariant] = useState(""),
+    [colour, setColour] = useState(""),
+    [photo, setPhoto] = useState(""),
+    [error, setError] = useState(""),
+    [related, setRelated] = useState([]),
+    { user, setCart, notify } = useContext(C),
+    nav = useNavigate();
+  useEffect(() => {
+    setP(null);
+    setError("");
+    api("/products/" + slug)
+      .then((x) => {
+        setP(x);
+        api('/products?' + new URLSearchParams({category:x.category})).then(items => setRelated(items.filter(item => item.id !== x.id).slice(0,4))).catch(() => setRelated([]));
+        let v =
+          x.variants.find((v) => v.available && v.stock > 0) || x.variants[0];
+        let name = v?.colour || "";
+        setColour(name);
+        setVariant(v?.available && v.stock ? String(v.id) : "");
+        let group = x.colours?.find((c) => c.name === name);
+        setPhoto(group?.images?.[0] || x.images?.[0] || x.image);
+      })
+      .catch((e) => setError(e.message));
+  }, [slug]);
+  if (!p) return <main className="wrap page">{error || "Loading..."}</main>;
+  let selected = p.variants.find((v) => String(v.id) === variant),
+    colours = (p.colours || []).filter((c) =>
+      p.variants.some((v) => v.colour === c.name),
+    ),
+    gallery = colours.find((c) => c.name === colour)?.images;
+  gallery = gallery?.length ? gallery : p.images?.length ? p.images : [p.image];
+  let displayedPrice = selected?.effective_price ?? p.sale_price;
+  function chooseColour(c) {
+    setColour(c.name);
+    let v = p.variants.find(
+      (v) => v.colour === c.name && v.available && v.stock > 0,
+    );
+    setVariant(v ? String(v.id) : "");
+    setPhoto(c.images?.[0] || p.images?.[0] || p.image);
+  }
+  return (
+    <main className="wrap page">
+      <div className="breadcrumbs">
+        <Link to="/">Home</Link> / {p.gender} / {p.name}
+      </div>
+      <div className="product-detail">
+        <div>
+          <div className="detail-image">
+            <img src={photo} alt={p.name} />
+          </div>
+          {gallery.length > 1 && (
+            <div className="gallery-thumbs">
+              {gallery.map((img, i) => (
+                <button
+                  key={img}
+                  className={photo === img ? "selected" : ""}
+                  onClick={() => setPhoto(img)}
+                  aria-label={"View image " + (i + 1)}
+                >
+                  <img src={img} alt="" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="detail-copy">
+          <div className="eyebrow">
+            {p.brand || "BUNAVAT"} / {p.category.toUpperCase()}
+          </div>
+          <h1>{p.name}</h1>
+          <p className="detail-price">
+            {money(displayedPrice)}{" "}
+            {displayedPrice < p.price && (
+              <>
+                <del>{money(p.price)}</del>{" "}
+                <span>
+                  {Math.round((1 - displayedPrice / p.price) * 100)}% OFF
+                </span>
+              </>
+            )}
+          </p>
+          <p className="muted">Inclusive of all taxes</p>
+          <div className="divider"></div>
+          <p>{p.description}</p>
+          <p>
+            <b>Colour:</b> {colour || "Unavailable"}
+          </p>
+          <div className="colour-swatches">
+            {colours.map((c) => (
+              <button
+                key={c.name}
+                className={c.name === colour ? "selected" : ""}
+                onClick={() => chooseColour(c)}
+                aria-label={"Colour " + c.name}
+                aria-pressed={c.name === colour}
+              >
+                <span style={{ background: c.code || "#e6e5df" }} />
+                {c.name}
+              </button>
+            ))}
+          </div>
+          <p>
+            <b>Select size</b>
+          </p>
+          <div className="sizes">
+            {p.variants
+              .filter((v) => v.colour === colour)
+              .map((v) => (
+                <button
+                  disabled={!v.stock || !v.available}
+                  className={variant === String(v.id) ? "selected" : ""}
+                  onClick={() => setVariant(String(v.id))}
+                  key={v.id}
+                >
+                  {v.size}
+                </button>
+              ))}
+          </div>
+          <p className="stock">
+            {selected ? `${selected.stock} available` : "Currently unavailable"}
+          </p>
+          <div className="detail-actions">
+          {['ADD TO BAG', 'BUY NOW'].map(label => <button key={label} className={'button full ' + (label === 'ADD TO BAG' ? 'dark' : 'buy-now')} disabled={!selected} onClick={async () => {
+            if (!user) { nav('/login'); return; }
+            try { setCart(await api('/cart', {method:'POST', body:JSON.stringify({variant_id:Number(variant),quantity:1})})); if(label === 'BUY NOW') nav('/checkout'); else notify('Added to your bag'); } catch(e) { notify(e.message); }
+          }}>{label} <ShoppingBag size={17}/></button>)}
+          </div>
+          <details className="size-guide"><summary>Size guidance</summary><p>Fit varies by style. Choose from the sizes available above; see the product details for fit information.</p></details>
+          <div className="product-info">
+            <p>
+              <Truck size={18} /> Free shipping on orders above ₹1,999
+            </p>
+            <p>
+              <RotateCcw size={18} /> Easy returns on eligible orders
+            </p>
+            {p.material && (
+              <p>
+                <b>Fabric</b> &nbsp; {p.material}
+              </p>
+            )}
+            {p.fit && (
+              <p>
+                <b>Fit</b> &nbsp; {p.fit}
+              </p>
+            )}
+            {p.specifications && (
+              <p>
+                <b>Specifications</b> &nbsp; {p.specifications}
+              </p>
+            )}
+            <p>
+              <b>SKU</b> &nbsp; {selected?.sku || p.sku}
+            </p>
+          </div>
+        </div>
+      </div>
+      <Reviews product={p} />
+      {related.length > 0 && <Section eyebrow="EXPLORE MORE" title="You may also like" products={related} link={'/category/' + encodeURIComponent(p.category)}/>}
+    </main>
+  );
+}
+function Reviews({ product }) {
+  let [reviews, setReviews] = useState([]),
+    [rating, setRating] = useState("5"),
+    [body, setBody] = useState(""),
+    { user, notify } = useContext(C);
+  useEffect(() => {
+    api("/products/" + product.slug + "/reviews").then(setReviews);
+  }, [product.slug]);
+  return (
+    <section className="reviews">
+      <div className="section-heading">
+        <div>
+          <div className="eyebrow">THOUGHTS FROM THE COMMUNITY</div>
+          <h2>
+            Customer reviews<span className="dot">.</span>
+          </h2>
+          <p>
+            {reviews.length
+              ? `${(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)} / 5 · ${reviews.length} review${reviews.length === 1 ? "" : "s"}`
+              : "No reviews yet."}
+          </p>
+        </div>
+      </div>
+      {reviews.map((r) => (
+        <div className="review" key={r.id}>
+          <b>
+            {"★".repeat(r.rating)}
+            {"☆".repeat(5 - r.rating)}
+          </b>
+          <p>{r.body}</p>
+          <small>
+            {r.name} · Verified purchase · {r.created_at}
+          </small>
+          {user && (
+            <button
+              onClick={async () => {
+                let reason = prompt("Why are you reporting this review?");
+                if (!reason) return;
+                try {
+                  await api("/reviews/" + r.id + "/report", {
+                    method: "POST",
+                    body: JSON.stringify({ reason }),
+                  });
+                  notify("Review reported");
+                } catch (e) {
+                  notify(e.message);
+                }
+              }}
+            >
+              Report
+            </button>
+          )}
+        </div>
+      ))}
+      {user && (
+        <form
+          className="review-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await api("/products/" + product.slug + "/reviews", {
+                method: "POST",
+                body: JSON.stringify({ rating: Number(rating), body }),
+              });
+              setBody("");
+              notify("Review submitted for moderation");
+            } catch (e) {
+              notify(e.message);
+            }
+          }}
+        >
+          <h3>Write a review</h3>
+          <p>Reviews are available to customers who received this item.</p>
+          <label>
+            Rating{" "}
+            <select value={rating} onChange={(e) => setRating(e.target.value)}>
+              {[5, 4, 3, 2, 1].map((n) => (
+                <option key={n} value={n}>
+                  {n} / 5
+                </option>
+              ))}
+            </select>
+          </label>
+          <textarea
+            required
+            minLength={5}
+            maxLength={2000}
+            placeholder="Share your thoughts"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <button className="button dark">
+            SUBMIT REVIEW <ArrowRight size={16} />
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+function Auth({ register = false }) {
+  let [form, setForm] = useState({ name: "", email: "", password: "" }),
+    { refresh, notify } = useContext(C),
+    nav = useNavigate();
+  return (
+    <main className="narrow page">
+      <div className="eyebrow">WELCOME TO BUNAVAT</div>
+      <h1>
+        {register ? "Create your account" : "Good to see you again"}
+        <span className="dot">.</span>
+      </h1>
+      <p className="muted">
+        {register
+          ? "A little more style, made personal."
+          : "Sign in to keep your favourites close."}
+      </p>
+      <form
+        className="form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            await api(register ? "/register" : "/login", {
+              method: "POST",
+              body: JSON.stringify(form),
+            });
+            await refresh();
+            nav("/account");
+          } catch (e) {
+            notify(e.message);
+          }
+        }}
+      >
+        {register && (
+          <label>
+            Name
+            <input
+              required
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </label>
+        )}
+        <label>
+          Email address
+          <input
+            type="email"
+            required
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </label>
+        <label>
+          Password
+          <input
+            type="password"
+            required
+            minLength="8"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
+        </label>
+        <button className="button dark full">
+          {register ? "CREATE ACCOUNT" : "SIGN IN"} <ArrowRight size={17} />
+        </button>
+      </form>
+      <p className="form-switch">
+        {register ? "Already have an account?" : "New around here?"}{" "}
+        <Link to={register ? "/login" : "/register"}>
+          {register ? "Sign in" : "Create an account"}
+        </Link>
+      </p>
+    </main>
+  );
+}
+function Cart() {
+  let { cart, setCart, user, notify } = useContext(C);
+  async function update(id, method, quantity) {
+    try {
+      setCart(
+        await api("/cart/" + id, {
+          method,
+          body: method === "PATCH" ? JSON.stringify({ quantity }) : undefined,
+        }),
+      );
+    } catch (e) {
+      notify(e.message);
+    }
+  }
+  let subtotal = cart.reduce((s, i) => s + i.sale_price * i.quantity, 0);
+  return (
+    <main className="wrap page">
+      <div className="eyebrow">YOUR EDIT</div>
+      <h1>
+        Your shopping bag<span className="dot">.</span>
+      </h1>
+      {!user ? (
+        <p>
+          Please <Link to="/login">sign in</Link> to view your bag.
+        </p>
+      ) : !cart.length ? (
+        <div className="empty">
+          Your bag is waiting for something good.
+          <br />
+          <Link className="button dark" to="/search">
+            EXPLORE THE COLLECTION <ArrowRight size={16} />
+          </Link>
+        </div>
+      ) : (
+        <div className="cart-layout">
+          <div>
+            {cart.map((i) => (
+              <div className="cart-item" key={i.variant_id}>
+                <img src={i.image} />
+                <div>
+                  <Link to={"/product/" + i.slug}>
+                    <b>{i.name}</b>
+                  </Link>
+                  <p>
+                    {i.colour} / {i.size}
+                  </p>
+                  <div className="quantity">
+                    <button
+                      onClick={() =>
+                        i.quantity > 1 &&
+                        update(i.variant_id, "PATCH", i.quantity - 1)
+                      }
+                    >
+                      <Minus size={14} />
+                    </button>
+                    {i.quantity}
+                    <button
+                      onClick={() =>
+                        update(i.variant_id, "PATCH", i.quantity + 1)
+                      }
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                  <button
+                    className="remove"
+                    onClick={() => update(i.variant_id, "DELETE")}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <b>{money(i.sale_price * i.quantity)}</b>
+              </div>
+            ))}
+          </div>
+          <div className="summary">
+            <h2>Order summary</h2>
+            <div>
+              <span>Subtotal</span>
+              <b>{money(subtotal)}</b>
+            </div>
+            <div>
+              <span>Shipping</span>
+              <b>{subtotal >= 1999 ? "FREE" : money(99)}</b>
+            </div>
+            <div className="total">
+              <span>Total</span>
+              <b>{money(subtotal + (subtotal >= 1999 ? 0 : 99))}</b>
+            </div>
+            <Link to="/checkout" className="button dark full">
+              CONTINUE TO CHECKOUT <ArrowRight size={17} />
+            </Link>
+            <small>Shipping is free on orders above ₹1,999.</small>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
+function Checkout() {
+  let { cart, refresh, notify } = useContext(C),
+    nav = useNavigate(),
+    [form, setForm] = useState({
+      name: "",
+      phone: "",
+      address: "",
+      city: "",
+      state: "",
+      pin: "",
+      instructions: "",
+      payment_method: "COD",
+    });
+  return (
+    <main className="narrow page">
+      <div className="eyebrow">ALMOST THERE</div>
+      <h1>
+        Delivery details<span className="dot">.</span>
+      </h1>
+      <p className="muted">
+        Your order will be confirmed after inventory is checked.
+      </p>
+      <form
+        className="form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            let o = await api("/orders", {
+              method: "POST",
+              body: JSON.stringify(form),
+            });
+            await refresh();
+            nav("/account/orders/" + o.id);
+          } catch (e) {
+            notify(e.message);
+          }
+        }}
+      >
+        {[
+          ["name", "Full name"],
+          ["phone", "Phone number"],
+          ["address", "Complete address"],
+          ["city", "City"],
+          ["state", "State"],
+          ["pin", "PIN code"],
+          ["instructions", "Delivery instructions (optional)"],
+        ].map(([key, label]) => (
+          <label key={key}>
+            {label}
+            <input
+              required={key !== "instructions"}
+              value={form[key]}
+              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+            />
+          </label>
+        ))}
+        <div className="payment-box">
+          <b>Payment method</b>
+          <p>Cash on Delivery</p>
+          <small>Online payments are not currently configured.</small>
+        </div>
+        <button disabled={!cart.length} className="button dark full">
+          PLACE ORDER <ArrowRight size={17} />
+        </button>
+      </form>
+    </main>
+  );
+}
+function Wishlist() {
+  let { wish, user } = useContext(C);
+  return (
+    <main className="wrap page">
+      <div className="eyebrow">SAVED FOR LATER</div>
+      <h1>
+        Your wishlist<span className="dot">.</span>
+      </h1>
+      {!user ? (
+        <p>
+          Please <Link to="/login">sign in</Link> to view your wishlist.
+        </p>
+      ) : wish.length ? (
+        <div className="products-grid">
+          {wish.map((p) => (
+            <Card key={p.id} p={p} />
+          ))}
+        </div>
+      ) : (
+        <p className="empty">
+          Your wishlist is waiting for its first favourite.
+        </p>
+      )}
+    </main>
+  );
+}
+function Account() {
+  let { user, refresh } = useContext(C),
+    nav = useNavigate();
+  return (
+    <main className="narrow page">
+      <div className="eyebrow">YOUR BUNAVAT</div>
+      <h1>
+        {user ? "Hello, " + user.name : "Your account"}
+        <span className="dot">.</span>
+      </h1>
+      {user ? (
+        <div className="account-links">
+          <p>{user.email}</p>
+          <Link to="/account/orders">
+            Your orders <ArrowRight size={18} />
+          </Link>
+          <Link to="/wishlist">
+            Your wishlist <ArrowRight size={18} />
+          </Link>
+          {user.role === "admin" && (
+            <Link to="/admin">
+              Admin dashboard <ArrowRight size={18} />
+            </Link>
+          )}
+          <button
+            onClick={async () => {
+              await api("/logout", { method: "POST" });
+              await refresh();
+              nav("/");
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      ) : (
+        <Link className="button dark" to="/login">
+          SIGN IN <ArrowRight size={17} />
+        </Link>
+      )}
+    </main>
+  );
+}
+function Orders() {
+  let [orders, setOrders] = useState([]),
+    { user } = useContext(C);
+  useEffect(() => {
+    if (user) api("/orders").then(setOrders);
+  }, [user]);
+  return (
+    <main className="wrap page">
+      <div className="eyebrow">YOUR ACCOUNT</div>
+      <h1>
+        Your orders<span className="dot">.</span>
+      </h1>
+      {!user ? (
+        <Link to="/login">Sign in to see your orders</Link>
+      ) : orders.length ? (
+        orders.map((o) => (
+          <Link className="order-row" key={o.id} to={"/account/orders/" + o.id}>
+            <div>
+              <b>{o.number}</b>
+              <p>
+                {o.created_at} · {money(o.total)}
+              </p>
+            </div>
+            <span>
+              {o.status} <ChevronRight size={16} />
+            </span>
+          </Link>
+        ))
+      ) : (
+        <p className="empty">No orders yet. Your next favourite is waiting.</p>
+      )}
+    </main>
+  );
+}
+function Order() {
+  let { id } = useParams(),
+    [o, setO] = useState(null),
+    [reason, setReason] = useState(""),
+    { notify } = useContext(C);
+  let load = () =>
+    api("/orders/" + id)
+      .then(setO)
+      .catch((e) => notify(e.message));
+  useEffect(() => {
+    load();
+  }, [id]);
+  async function action(type, body = {}) {
+    try {
+      await api("/orders/" + id + "/" + type, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      load();
+      notify(type === "cancel" ? "Order cancelled" : "Return requested");
+    } catch (e) {
+      notify(e.message);
+    }
+  }
+  if (!o) return <main className="wrap page">Loading order...</main>;
+  return (
+    <main className="wrap page">
+      <div className="eyebrow">ORDER DETAILS</div>
+      <h1>
+        {o.number}
+        <span className="dot">.</span>
+      </h1>
+      <p>
+        {o.status} · {o.payment_method} · {o.payment_status}
+      </p>
+      <div className="cart-layout">
+        <div>
+          <h2>Items</h2>
+          {o.items.map((i) => (
+            <div className="order-row" key={i.id}>
+              <div>
+                <b>{i.name}</b>
+                <p>
+                  {i.size} / {i.colour} × {i.quantity}
+                </p>
+              </div>
+              <b>{money(i.price * i.quantity)}</b>
+            </div>
+          ))}
+          <h2>Order timeline</h2>
+          {o.timeline.map((t) => (
+            <div className="timeline" key={t.id}>
+              <b>{t.status}</b>
+              <small>
+                {t.created_at} {t.note}
+              </small>
+            </div>
+          ))}
+          {o.tracking && <p>Tracking: {o.tracking}</p>}
+        </div>
+        <div className="summary">
+          <h2>Delivery</h2>
+          <p>
+            {o.name}
+            <br />
+            {o.address}
+            <br />
+            {o.city}, {o.state} {o.pin}
+            <br />
+            {o.phone}
+          </p>
+          <div className="total">
+            <span>Total</span>
+            <b>{money(o.total)}</b>
+          </div>
+          {["Order Placed", "Processing"].includes(o.status) && (
+            <button
+              className="outline-button"
+              onClick={() => {
+                if (confirm("Cancel this order?")) action("cancel");
+              }}
+            >
+              Cancel order
+            </button>
+          )}
+          {o.status === "Delivered" && !o.return_request && (
+            <>
+              <input
+                placeholder="Reason for return"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <button
+                className="outline-button"
+                onClick={() => action("return", { reason })}
+              >
+                Request return
+              </button>
+            </>
+          )}
+          {o.return_request && <p>Return: {o.return_request.status}</p>}
+        </div>
+      </div>
+    </main>
+  );
+}
+const info = {
+  about: [
+    "A little about us",
+    "BUNAVAT is about the art of everyday dressing. We bring together thoughtful pieces and easy silhouettes for the moments that make a life.",
+  ],
+  contact: [
+    "Let’s talk",
+    "For questions about your order, please contact the store owner. Contact details will be published here when configured.",
+  ],
+  returns: [
+    "Returns",
+    "You can request a return from the details page of a delivered order. Requests are reviewed by the store team.",
+  ],
+  "return-policy": [
+    "Return policy",
+    "Return requests can be made from your delivered order. Approval is subject to review by the store team. Contact the store before sending any item back.",
+  ],
+  "shipping-policy": [
+    "Shipping policy",
+    "Shipping is free on orders of ₹1,999 and above. A ₹99 shipping charge applies below this amount. Delivery and tracking details will be shared when available.",
+  ],
+  "privacy-policy": [
+    "Privacy policy",
+    "Account, delivery and order information is used to provide store services. Contact the store owner with privacy questions.",
+  ],
+  terms: [
+    "Terms & conditions",
+    "Orders are subject to availability and confirmation. Product prices and availability may change.",
+  ],
+};
+function Info() {
+  let { page } = useParams(),
+    item = info[page] || [
+      "Page not found",
+      "The page you are looking for is not available.",
+    ];
+  return (
+    <main className="narrow page">
+      <div className="eyebrow">BUNAVAT / THE DETAILS</div>
+      <h1>
+        {item[0]}
+        <span className="dot">.</span>
+      </h1>
+      <p className="info-text">{item[1]}</p>
+      <Link className="text-link" to="/search">
+        EXPLORE THE COLLECTION <ArrowRight size={16} />
+      </Link>
+    </main>
+  );
+}
+function Footer() {
+  return (
+    <footer>
+      <div className="wrap">
+        <div className="footer-main">
+          <div className="footer-brand">
+            <Link className="logo" to="/">
+              BUNAVAT<span>®</span>
+            </Link>
+            <p>
+              Good clothes for the life you live.
+              <br />
+              Made for your everyday, and every you.
+            </p>
+            <div className="social">
+              <Instagram size={19} />
+              <Facebook size={19} />
+            </div>
+          </div>
+          <div>
+            <h4>EXPLORE</h4>
+            <Link to="/women">Women</Link>
+            <Link to="/men">Men</Link>
+            <Link to="/search">New arrivals</Link>
+            <Link to="/search">Shop all</Link>
+          </div>
+          <div>
+            <h4>HERE TO HELP</h4>
+            <Link to="/contact">Contact us</Link>
+            <Link to="/account/orders">Track your order</Link>
+            <Link to="/shipping-policy">Shipping policy</Link>
+            <Link to="/return-policy">Returns & exchanges</Link>
+          </div>
+          <div>
+            <h4>THE DETAILS</h4>
+            <Link to="/about">About us</Link>
+            <Link to="/privacy-policy">Privacy policy</Link>
+            <Link to="/terms">Terms & conditions</Link>
+          </div>
+          <div className="footer-note">
+            <span>MADE FOR</span>
+            <strong>
+              every
+              <br />
+              <em>you.</em>
+            </strong>
+            <small>THOUGHTFULLY, BUNAVAT ✳</small>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <span>
+            © {new Date().getFullYear()} BUNAVAT. ALL RIGHTS RESERVED.
+          </span>
+          <span>MADE FOR EVERYDAY LIFE IN INDIA &nbsp; ♡</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+function MobileNav() {
+  return (
+    <div className="mobile-bottom">
+      <Link to="/">
+        <span>⌂</span>Home
+      </Link>
+      <Link to="/search">
+        <Search size={20} />
+        Search
+      </Link>
+      <Link to="/wishlist">
+        <Heart size={20} />
+        Saved
+      </Link>
+      <Link to="/cart">
+        <ShoppingBag size={20} />
+        Bag
+      </Link>
+      <Link to="/account">
+        <UserRound size={20} />
+        Account
+      </Link>
+    </div>
+  );
+}
+createRoot(document.getElementById("root")).render(<App />);
