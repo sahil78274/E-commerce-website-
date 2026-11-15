@@ -28,9 +28,14 @@ function addColumn(table, name, definition) {
 for (const [name,def] of Object.entries({status:"TEXT NOT NULL DEFAULT 'active'",subcategory:"TEXT NOT NULL DEFAULT ''",brand:"TEXT NOT NULL DEFAULT ''",fit:"TEXT NOT NULL DEFAULT ''",specifications:"TEXT NOT NULL DEFAULT ''",offer_price:'INTEGER',new_arrival:'INTEGER NOT NULL DEFAULT 0',best_seller:'INTEGER NOT NULL DEFAULT 0'})) addColumn('products',name,def);
 addColumn('variants','enabled','INTEGER NOT NULL DEFAULT 1');
 addColumn('variants','sku',"TEXT NOT NULL DEFAULT ''");
+addColumn('variants','available','INTEGER NOT NULL DEFAULT 1');
+addColumn('variants','sale_price','INTEGER');
+addColumn('order_items','variant_sku',"TEXT NOT NULL DEFAULT ''");
 db.exec(`CREATE TABLE IF NOT EXISTS product_images(product_id INTEGER NOT NULL REFERENCES products(id), url TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(product_id,url));
 CREATE TABLE IF NOT EXISTS uploads(url TEXT PRIMARY KEY, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS migrations(name TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP);`);
+CREATE TABLE IF NOT EXISTS migrations(name TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS product_colours(id INTEGER PRIMARY KEY, product_id INTEGER NOT NULL REFERENCES products(id), name TEXT NOT NULL, code TEXT NOT NULL DEFAULT '', active INTEGER NOT NULL DEFAULT 1, UNIQUE(product_id,name));
+CREATE TABLE IF NOT EXISTS colour_images(colour_id INTEGER NOT NULL REFERENCES product_colours(id), url TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(colour_id,url));`);
 // Remove only the exact legacy seed records. Rows referenced by orders or reviews are
 // archived instead, because historical transactions must never be destroyed.
 if (!db.prepare("SELECT 1 FROM migrations WHERE name='remove_legacy_catalogue_v1'").get()) {
@@ -53,6 +58,17 @@ if (!db.prepare("SELECT 1 FROM migrations WHERE name='remove_legacy_catalogue_v1
   db.exec("UPDATE products SET status=CASE WHEN active=1 THEN 'active' ELSE 'inactive' END; UPDATE products SET status='draft',active=0 WHERE image NOT LIKE '/uploads/%' AND active=1;");
   db.exec("INSERT OR IGNORE INTO uploads(url) SELECT image FROM products WHERE image LIKE '/uploads/%'; INSERT OR IGNORE INTO product_images(product_id,url,position) SELECT id,image,0 FROM products WHERE image LIKE '/uploads/%';");
   db.prepare("INSERT INTO migrations(name) VALUES('remove_legacy_catalogue_v1')").run();
+  db.exec('COMMIT');
+ } catch(e){db.exec('ROLLBACK');throw e;}
+}
+
+// Preserve existing variant identities and order references. Existing colours use
+// the product gallery until the owner adds colour-specific images.
+if (!db.prepare("SELECT 1 FROM migrations WHERE name='colour_variants_v1'").get()) {
+ db.exec('BEGIN IMMEDIATE');
+ try {
+  db.exec("INSERT OR IGNORE INTO product_colours(product_id,name) SELECT DISTINCT product_id,colour FROM variants WHERE colour<>'';");
+  db.prepare("INSERT INTO migrations(name) VALUES('colour_variants_v1')").run();
   db.exec('COMMIT');
  } catch(e){db.exec('ROLLBACK');throw e;}
 }
