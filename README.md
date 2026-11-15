@@ -10,11 +10,14 @@ A responsive React and Express fashion storefront with a persistent SQLite datab
 - Verified-purchase written reviews for delivered items, owner moderation and customer reporting.
 - Delivered-order return requests and owner approval/rejection; duplicate requests and duplicate cancellation are blocked.
 - Owner dashboard, product drafts/publication/editing/archive, multiple JPEG/PNG/WebP image uploads, colour-specific images and size-and-colour variant stock, availability, SKU and optional price management, manual order status transitions and optional manually entered courier/tracking text. Newsletter emails are stored locally; no mailing service is connected.
+- Separate storefront and owner workspace, with a shared light/dark preference. The first visit follows the system setting; toggles save the selection in browser local storage, and an inline head script applies it before the app paints.
+- Owner-only read views for customers, categories, low-stock variants, recent activity, best sellers and seven-day order/paid-revenue charts. Best sellers count ordered units excluding cancelled orders and approved returns; paid revenue includes only orders marked Paid and is grouped by order date in UTC. COD does not automatically become paid. The notification button reports orders awaiting processing.
+- New-arrival filtering, actual ordered best sellers, image hover previews when multiple uploaded images exist, product colour/size selection and related active products. Buy now adds the chosen variant and opens checkout with the current bag, rather than creating a separate order.
 - The catalogue starts empty. Decorative editorial/category images remain on the site but are never used as catalogue products. Only owner-uploaded images may be published with products.
 
 ## Important limitations before launch
 
-This is a working foundation, **not the complete platform described in the brief**. In particular, online payments (including Razorpay order creation, signature verification, webhooks and refunds), Shiprocket, automated emails/password reset, review images, customer address book, coupons, admin-managed homepage/banners, return evidence uploads, refund workflows, configurable return windows/policies, advanced filters, and several requested admin screens are **not implemented**. The UI only offers COD; it never claims an online payment succeeded. Return handling is a basic whole-order request, not a complete reverse-logistics/refund workflow. Contact and policy pages are placeholder copy that must be replaced with legal and operational details. There is no full carousel, seeded customer reviews, fake tracking, or fabricated payment data.
+This is a working foundation, **not the complete platform described in the brief**. In particular, online payments (including Razorpay order creation, signature verification, webhooks and refunds), Shiprocket, automated emails/password reset, review images, customer address book, coupons, admin-managed homepage/banners, return evidence uploads, refund workflows, configurable return windows/policies, advanced filters, and editable category management, complete inventory reporting, and other requested admin features are **not implemented**. Coupons, banners and settings are explicitly labelled unavailable in the workspace; categories are derived from product listings and inventory focuses on low stock. The UI only offers COD; it never claims an online payment succeeded. Return handling is a basic whole-order request, not a complete reverse-logistics/refund workflow. Contact and policy pages are placeholder copy that must be replaced with legal and operational details. There is no full carousel, seeded customer reviews, fake tracking, or fabricated payment data.
 
 Before real deployment, also add production security review, CSRF protections appropriate to the hosting topology, a further security review of input and image handling, email verification, password recovery, account lockout, session management, reliable backups, monitoring, accessibility and browser testing, more comprehensive migration tooling, and a scalable database/transaction strategy. The application sets `trust proxy` to one hop; adjust it to match your actual trusted reverse proxy rather than exposing the app directly to untrusted proxy headers. Rate limiting is in-memory and not shared between instances. Use HTTPS, a persistent filesystem and a single application instance. Consult Indian tax, privacy and consumer-law professionals before launch.
 
@@ -122,7 +125,8 @@ All paths are under `/api`. Mutations use JSON except image upload. Authenticate
 | --- | --- | --- |
 | POST | `/register`, `/login`, `/logout` | Account/session |
 | GET | `/me` | Current session |
-| GET | `/products`, `/products/:slug` | Active catalog and variants; supports `gender`, `category`, `search`, `sort` |
+| GET | `/products`, `/products/:slug` | Active catalog and variants; supports `gender`, `category`, `search`, `sort`, `new=1` |
+| GET | `/best-sellers` | Active products ranked by recorded units ordered, excluding cancelled orders and approved returns |
 | GET, POST | `/wishlist`, `/wishlist/:id` | List/toggle saved products |
 | GET, POST | `/cart` | List/add variant |
 | PATCH, DELETE | `/cart/:variantId` | Change quantity/remove |
@@ -133,7 +137,7 @@ All paths are under `/api`. Mutations use JSON except image upload. Authenticate
 | POST | `/reviews/:id/report` | Report an approved review |
 | GET, PATCH | `/admin/reviews`, `/admin/reviews/:id` | Owner review moderation |
 | POST | `/newsletter` | Store an email subscription |
-| GET | `/admin/overview`, `/admin/orders`, `/admin/returns`, `/admin/products` | Owner views |
+| GET | `/admin/overview`, `/admin/insights`, `/admin/orders`, `/admin/returns`, `/admin/products` | Owner views |
 | POST, GET, PUT, DELETE | `/admin/products`, `/admin/products/:id` | Create/read/edit/archive product |
 | POST | `/admin/upload` | Owner multipart field `image`, JPEG/PNG/WebP, max 5 MB |
 | PATCH | `/admin/variants/:id`, `/admin/orders/:id`, `/admin/returns/:id` | Stock, status or return decision |
