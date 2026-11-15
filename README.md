@@ -18,18 +18,59 @@ This is a working foundation, **not the complete platform described in the brief
 
 Before real deployment, also add production security review, CSRF protections appropriate to the hosting topology, a further security review of input and image handling, email verification, password recovery, account lockout, session management, reliable backups, monitoring, accessibility and browser testing, more comprehensive migration tooling, and a scalable database/transaction strategy. The application sets `trust proxy` to one hop; adjust it to match your actual trusted reverse proxy rather than exposing the app directly to untrusted proxy headers. Rate limiting is in-memory and not shared between instances. Use HTTPS, a persistent filesystem and a single application instance. Consult Indian tax, privacy and consumer-law professionals before launch.
 
+## Project structure
+
+```text
+client/                React app, public images and Vite configuration
+  src/                 Existing components and styles
+  public/              Decorative images
+  package.json         Frontend dependencies and commands
+  .env.example         Public development proxy setting
+server/
+  src/index.js         Express app and existing API routes
+  src/routes/          Product administration and image upload routes
+  src/db.js            SQLite schema and migrations
+  src/admin.js         Owner setup command
+  src/paths.js         Stable database, uploads and client build paths
+  package.json         Backend dependencies and commands
+  .env.example         Backend-only configuration
+data/                  Runtime database and uploads (not committed)
+tests/                 Integration, migration and path tests
+package.json           npm workspaces and root commands
+```
+
+No placeholder models, middleware, or upload folders are created: the existing SQLite schema and middleware remain in the backend source, while uploads stay in the existing persistent `data/uploads` location.
+
 ## Local setup
+
+Node 22.13+ and npm are required. From the repository root:
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open the Vite address shown in the terminal. Vite proxies `/api` and `/uploads` to the Express server on port 3001. The API creates `data/bunavat.sqlite` automatically with an empty catalogue. A one-time migration removes the original seed records; if an original seed product has an order or review it is archived instead to preserve history. Products using decorative images are unpublished until the owner supplies uploaded images. Uploaded images default to `data/uploads`; both the database and uploads need backups. They are excluded from Git.
+This starts Vite on **http://localhost:5173** and Express on **http://localhost:5000**. Alternatively run each in its own terminal (the packages are npm workspaces; installations from either folder use the root lockfile):
+
+```sh
+cd server
+npm install
+npm run dev
+```
+
+```sh
+cd client
+npm install
+npm run dev
+```
+
+Vite proxies `/api` and `/uploads` to Express on port 5000 while preserving the original host and cookies. Browser code uses same-origin URLs; no CORS changes are required. The API creates `data/bunavat.sqlite` automatically with an empty catalogue. A one-time migration removes the original seed records; if an original seed product has an order or review it is archived instead to preserve history. Products using decorative images are unpublished until the owner supplies uploaded images. Uploaded images default to `data/uploads`; both the database and uploads need backups. They are excluded from Git.
 
 Image uploads are decoded and converted to WebP. Default local storage requires a persistent volume; ephemeral server filesystems will lose uploads. For a managed persistent service, configure `IMAGE_STORAGE=s3`, `S3_BUCKET`, `AWS_REGION`, AWS credentials via the SDK credential chain, and optionally `S3_ENDPOINT` for an S3-compatible provider. The bucket can remain private: Express serves the saved image URLs. Switching storage backends requires copying existing objects to the new backend first. S3 is implemented but requires your credentials and has not been tested against a live provider. Removing an image from a product does not immediately delete the stored object.
 
-Environment variables are documented in `.env.example`; export them or provide them through a process manager (the app does not read `.env` automatically). `PORT` controls the API port; update the Vite proxy if changing it during development.
+Backend environment variables are documented in `server/.env.example`; export them or provide them through a process manager (the backend does not load `.env` automatically). `client/.env.example` contains only the optional public `VITE_PROXY_TARGET`; Vite loads a copied `client/.env` automatically. No backend secret belongs in that file. `PORT` controls the API port; set `VITE_PROXY_TARGET` to match if changing it. The pre-existing root `.env`, if present, is not moved or overwritten.
+
+To preserve existing installations, default database and upload locations remain **repository-root** `data/bunavat.sqlite` and `data/uploads`, regardless of whether the server is started from the root or `server/`. Relative `DB_PATH` and `UPLOAD_DIR` overrides are also resolved from the repository root; absolute overrides continue to work. Back up these locations before upgrading and keep them on persistent storage. No database or uploads need to be moved.
 
 ### Owner setup
 
@@ -48,12 +89,12 @@ Sign in with that account, then visit `/admin`. Customer registration cannot gra
 
 ```sh
 npm run build
-NODE_ENV=production PORT=3001 npm start
+PORT=5000 npm start
 ```
 
-The Express server serves the built frontend, API, and persistent uploads on the same origin. Put it behind HTTPS and a correctly configured reverse proxy. In production the session cookie is `Secure`, so plain HTTP cannot be used to sign in. Preserve `data/` across deployments; never ship a development database to production. Run a single instance with SQLite and ensure your host supports persistent storage.
+The build is written to `client/dist`. The Express server serves that frontend, API, and persistent uploads on the same origin regardless of its working directory. Put it behind HTTPS and a correctly configured reverse proxy. In production the session cookie is `Secure`, so plain HTTP cannot be used to sign in. Preserve `data/` across deployments; never ship a development database to production. Run a single instance with SQLite and ensure your host supports persistent storage.
 
-For an embedded Arena preview on port 3001, run `npm run build` followed by `ALLOW_PREVIEW_EMBED=1 npm start`. This opt-in disables the `X-Frame-Options` header so the preview can be embedded; leave it unset in normal deployments.
+For an embedded Arena preview on port 3001, run `npm run build` followed by `PORT=3001 ALLOW_PREVIEW_EMBED=1 npm start`. This opt-in disables the `X-Frame-Options` header so the preview can be embedded; leave it unset in normal deployments.
 
 ## Tests
 
@@ -63,7 +104,7 @@ npm run build
 npm audit --omit=dev
 ```
 
-The integration test starts an isolated API and covers an empty catalogue, registration/login, admin permissions, uploaded image persistence, draft/publish validation, multiple variants, public search, price and inventory edits, stock limits, COD placement, order privacy, variant removal, cancellation and safe archival. It does not cover Razorpay/Shiprocket (not implemented), browser rendering, responsive layout, password reset, or the other missing features above.
+The integration test starts isolated Express and Vite processes and exercises the proxy, customer/admin login, admin permissions, uploaded image persistence, draft/publish validation, multiple variants, public search, price and inventory edits, stock limits, COD placement, order privacy, variant removal, cancellation, reviews, return approvals and safe archival. Migration and path tests check history preservation and stable storage paths from both working directories. `npm test` builds the client first. It does not cover Razorpay/Shiprocket (not implemented), browser rendering, responsive layout, password reset, or the other missing features above.
 
 ## API overview
 

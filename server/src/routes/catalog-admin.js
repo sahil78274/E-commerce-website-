@@ -4,11 +4,12 @@ import path from 'node:path';
 import multer from 'multer';
 import sharp from 'sharp';
 import {S3Client,PutObjectCommand,GetObjectCommand} from '@aws-sdk/client-s3';
+import {uploadsPath} from '../paths.js';
 
 // Files are stored on a persistent filesystem, not in the build directory.
 export function mountCatalogAdmin({app,db,auth,admin,wrap}) {
  const q=(s,...a)=>db.prepare(s).all(...a), one=(s,...a)=>db.prepare(s).get(...a), run=(s,...a)=>db.prepare(s).run(...a);
- const uploadDir=process.env.UPLOAD_DIR||'data/uploads',useS3=process.env.IMAGE_STORAGE==='s3';
+ const uploadDir=uploadsPath,useS3=process.env.IMAGE_STORAGE==='s3';
  if(process.env.IMAGE_STORAGE&&!['local','s3'].includes(process.env.IMAGE_STORAGE))throw Error('IMAGE_STORAGE must be local or s3');
  let s3=null;const bucket=process.env.S3_BUCKET;
  if(useS3){if(!bucket||!process.env.AWS_REGION)throw Error('S3_BUCKET and AWS_REGION are required for S3 image storage');s3=new S3Client({region:process.env.AWS_REGION,...(process.env.S3_ENDPOINT?{endpoint:process.env.S3_ENDPOINT,forcePathStyle:true}:{})});
